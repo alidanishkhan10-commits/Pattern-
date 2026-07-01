@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MarkerPro — Fabric Nesting Optimizer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --ink: #1a1a1a;
+    --fabric: #f7f3ee;
+    --thread: #c8b89a;
+    --cut: #e05c2a;
+    --seam: #3a6b4a;
+    --chalk: #ffffff;
+    --grid: #e8e2d9;
+    --panel: #efefeb;
+    --muted: #888;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--fabric);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--ink);
+    color: var(--chalk);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 3px solid var(--cut);
+  }
+
+  header .logo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1.3rem;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+  }
+
+  header .logo span { color: var(--cut); }
+
+  header .tagline {
+    font-size: 0.75rem;
+    color: #aaa;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  header .stats-bar {
+    margin-left: auto;
+    display: flex;
+    gap: 24px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+  }
+
+  header .stat { text-align: right; }
+  header .stat .val { color: var(--cut); font-size: 1rem; font-weight: 600; }
+  header .stat .lbl { color: #888; font-size: 0.65rem; text-transform: uppercase; }
+
+  .workspace {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 0;
+    height: calc(100vh - 60px);
+  }
+
+  /* LEFT PANEL */
+  .sidebar {
+    background: var(--panel);
+    border-right: 1px solid var(--grid);
+    overflow-y: auto;
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .panel-section {
+    background: var(--chalk);
+    border: 1px solid var(--grid);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .panel-title {
+    background: var(--ink);
+    color: var(--chalk);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-title .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--cut);
+  }
+
+  .panel-body { padding: 14px 12px; }
+
+  .field-row {
+    margin-bottom: 11px;
+  }
+
+  .field-row label {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .field-row input, .field-row select {
+    width: 100%;
+    border: 1px solid var(--grid);
+    border-radius: 4px;
+    padding: 7px 10px;
+    font-size: 0.82rem;
+    font-family: 'IBM Plex Mono', monospace;
+    background: var(--fabric);
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .field-row input:focus, .field-row select:focus {
+    border-color: var(--cut);
+  }
+
+  .field-duo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.03em;
+  }
+
+  .btn-primary {
+    background: var(--cut);
+    color: white;
+  }
+  .btn-primary:hover { background: #c44e22; }
+
+  .btn-secondary {
+    background: var(--seam);
+    color: white;
+  }
+  .btn-secondary:hover { background: #2e5439; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--grid);
+  }
+  .btn-ghost:hover { background: var(--grid); }
+
+  /* Pattern list */
+  .pattern-list { display: flex; flex-direction: column; gap: 6px; }
+
+  .pattern-item {
+    background: var(--fabric);
+    border: 1px solid var(--grid);
+    border-radius: 4px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: grab;
+    transition: all 0.15s;
+    position: relative;
+  }
+
+  .pattern-item:hover { border-color: var(--cut); background: #fff8f5; }
+  .pattern-item.dragging { opacity: 0.5; }
+  .pattern-item.placed { border-color: var(--seam); background: #f0f7f2; }
+
+  .pattern-color-swatch {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .pattern-info { flex: 1; min-width: 0; }
+  .pattern-name { font-size: 0.8rem; font-weight: 600; }
+  .pattern-dims { font-size: 0.68rem; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+
+  .pattern-qty {
+    background: var(--ink);
+    color: white;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  .pattern-actions { display: flex; gap: 4px; }
+  .pattern-actions button {
+    background: none; border: none; cursor: pointer;
+    font-size: 0.75rem; padding: 2px 4px; border-radius: 3px;
+    color: var(--muted);
+  }
+  .pattern-actions button:hover { background: var(--grid); color: var(--ink); }
+
+  /* MAIN CANVAS AREA */
+  .main-area {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .toolbar {
+    background: var(--chalk);
+    border-bottom: 1px solid var(--grid);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-group { display: flex; gap: 6px; align-items: center; }
+  .toolbar-divider { width: 1px; height: 24px; background: var(--grid); margin: 0 4px; }
+
+  .tool-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--grid);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    background: var(--fabric);
+    color: var(--ink);
+    transition: all 0.12s;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .tool-btn:hover { background: var(--grid); }
+  .tool-btn.active { background: var(--cut); color: white; border-color: var(--cut); }
+
+  .efficiency-badge {
+    margin-left: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    background: var(--ink);
+    color: var(--chalk);
+    padding: 5px 12px;
+    border-radius: 4px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .efficiency-badge .eff-val {
+    color: var(--cut);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  /* CANVAS */
+  .canvas-container {
+    flex: 1;
+    overflow: auto;
+    background: #d8d4cd;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 20px;
+    position: relative;
+  }
+
+  #markerCanvas {
+    background: var(--chalk);
+    cursor: default;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  }
+
+  /* Status bar */
+  .status-bar {
+    background: var(--ink);
+    color: #ccc;
+    padding: 5px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .status-bar .status-item { display: flex; gap: 5px; }
+  .status-bar .status-val { color: var(--thread); }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--chalk);
+    border-radius: 8px;
+    width: 420px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+  }
+
+  .modal-header {
+    background: var(--ink);
+    color: white;
+    padding: 14px 18px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+
+  .modal-close {
+    background: none; border: none; color: #aaa; cursor: pointer; font-size: 1.1rem;
+  }
+  .modal-close:hover { color: white; }
+
+  .modal-body { padding: 20px; }
+  .modal-footer {
+    padding: 14px 20px;
+    border-top: 1px solid var(--grid);
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .modal-footer .btn { width: auto; padding: 8px 18px; }
+
+  /* Tooltip */
+  .tooltip {
+    position: fixed;
+    background: var(--ink);
+    color: white;
+    font-size: 0.7rem;
+    font-family: 'IBM Plex Mono', monospace;
+    padding: 5px 10px;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 999;
+    display: none;
+  }
+
+  .section-divider {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    padding: 4px 0;
+    border-bottom: 1px solid var(--grid);
+    margin-bottom: 8px;
+  }
+
+  /* Results panel */
+  .results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .result-card {
+    background: var(--fabric);
+    border: 1px solid var(--grid);
+    border-radius: 4px;
+    padding: 10px;
+    text-align: center;
+  }
+
+  .result-card .r-val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--cut);
+  }
+
+  .result-card .r-lbl {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .result-card.good .r-val { color: var(--seam); }
+
+  .auto-result-info {
+    background: #f0f7f2;
+    border: 1px solid #b8d8c0;
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 0.75rem;
+    color: var(--seam);
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Marker<span>Pro</span></div>
+    <div class="tagline">Fabric Nesting & Marker Planning</div>
+  </div>
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="val" id="hdr-efficiency">0%</div>
+      <div class="lbl">Efficiency</div>
+    </div>
+    <div class="stat">
+      <div class="val" id="hdr-waste">0%</div>
+      <div class="lbl">Waste</div>
+    </div>
+    <div class="stat">
+      <div class="val" id="hdr-placed">0/0</div>
+      <div class="lbl">Pieces Placed</div>
+    </div>
+  </div>
+</header>
+
+<div class="workspace">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- Fabric Layer Setup -->
+    <div class="panel-section">
+      <div class="panel-title"><div class="dot"></div>Fabric Layer</div>
+      <div class="panel-body">
+        <div class="field-duo">
+          <div class="field-row">
+            <label>Width (cm)</label>
+            <input type="number" id="fabricWidth" value="150" min="10" max="500">
+          </div>
+          <div class="field-row">
+            <label>Length (cm)</label>
+            <input type="number" id="fabricLength" value="400" min="10" max="2000">
+          </div>
+        </div>
+        <div class="field-duo">
+          <div class="field-row">
+            <label>Seam Allowance</label>
+            <input type="number" id="seamAllowance" value="1.5" step="0.5" min="0">
+          </div>
+          <div class="field-row">
+            <label>Gap Between</label>
+            <input type="number" id="gapBetween" value="1" step="0.5" min="0">
+          </div>
+        </div>
+        <button class="btn btn-ghost" onclick="resetCanvas()" style="margin-top:2px;font-size:0.75rem;">↺ Reset Layout</button>
+      </div>
+    </div>
+
+    <!-- Add Pattern -->
+    <div class="panel-section">
+      <div class="panel-title"><div class="dot"></div>Add Pattern Piece</div>
+      <div class="panel-body">
+        <div class="field-row">
+          <label>Pattern Name</label>
+          <input type="text" id="patternName" placeholder="e.g. Front Panel, Waistband">
+        </div>
+        <div class="field-row">
+          <label>Garment Type</label>
+          <select id="garmentType">
+            <option value="trouser">Trouser / Crackpan</option>
+            <option value="short">Short</option>
+            <option value="waistband">Waistband</option>
+            <option value="pocket">Pocket Bag</option>
+            <option value="custom">Custom Piece</option>
+          </select>
+        </div>
+
+        <div class="section-divider">Measurements (cm)</div>
+
+        <div class="field-duo">
+          <div class="field-row">
+            <label>Height</label>
+            <input type="number" id="pHeight" value="60" min="1">
+          </div>
+          <div class="field-row">
+            <label>Max Width (Hip)</label>
+            <input type="number" id="pMaxWidth" value="35" min="1">
+          </div>
+        </div>
+        <div class="field-duo">
+          <div class="field-row">
+            <label>Min Width (Bottom)</label>
+            <input type="number" id="pMinWidth" value="28" min="1">
+          </div>
+          <div class="field-row">
+            <label>Waistline Width</label>
+            <input type="number" id="pWaistWidth" value="30" min="1">
+          </div>
+        </div>
+        <div class="field-duo">
+          <div class="field-row">
+            <label>Crotch Curve (cm)</label>
+            <input type="number" id="pCrotch" value="5" step="0.5" min="0">
+          </div>
+          <div class="field-row">
+            <label>Qty Needed</label>
+            <input type="number" id="pQty" value="2" min="1" max="20">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <label>Allow 180° Rotation</label>
+          <select id="pRotation">
+            <option value="0">No (grain direction fixed)</option>
+            <option value="180">Yes (180° flip)</option>
+            <option value="any">Any angle (knits/bias)</option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary" onclick="addPattern()">+ Add to Marker</button>
+      </div>
+    </div>
+
+    <!-- Pattern List -->
+    <div class="panel-section">
+      <div class="panel-title"><div class="dot"></div>Pattern Pieces</div>
+      <div class="panel-body" style="padding:10px 8px;">
+        <div class="pattern-list" id="patternList">
+          <div style="font-size:0.75rem;color:var(--muted);text-align:center;padding:12px;">No patterns added yet</div>
+        </div>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+          <button class="btn btn-secondary" onclick="autoNest()">⚡ Auto-Nest All Pieces</button>
+          <button class="btn btn-ghost" onclick="openResults()" style="font-size:0.75rem;">📊 View Results</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <button class="tool-btn active" id="tool-select" onclick="setTool('select')">↖ Select</button>
+        <button class="tool-btn" id="tool-move" onclick="setTool('move')">✥ Move</button>
+        <button class="tool-btn" id="tool-rotate" onclick="setTool('rotate')">↻ Rotate 90°</button>
+      </div>
+      <div class="toolbar-divider"></div>
+      <div class="toolbar-group">
+        <button class="tool-btn" onclick="zoomIn()">＋ Zoom</button>
+        <button class="tool-btn" onclick="zoomOut()">－ Zoom</button>
+        <button class="tool-btn" onclick="fitToScreen()">⊡ Fit</button>
+      </div>
+      <div class="toolbar-divider"></div>
+      <div class="toolbar-group">
+        <button class="tool-btn" onclick="toggleGrid()">⊞ Grid</button>
+        <button class="tool-btn" onclick="exportReport()">↓ Export CSV</button>
+      </div>
+      <div class="efficiency-badge">
+        Fabric Efficiency: <span class="eff-val" id="efficiencyDisplay">0.0%</span>
+      </div>
+    </div>
+
+    <div class="canvas-container" id="canvasContainer">
+      <canvas id="markerCanvas"></canvas>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-item">Fabric: <span class="status-val" id="sb-fabric">150 × 400 cm</span></div>
+      <div class="status-item">Selected: <span class="status-val" id="sb-selected">None</span></div>
+      <div class="status-item">Cursor: <span class="status-val" id="sb-cursor">0, 0</span></div>
+      <div class="status-item">Placed Area: <span class="status-val" id="sb-placed-area">0 cm²</span></div>
+      <div class="status-item">Waste: <span class="status-val" id="sb-waste">0 cm²</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD PATTERN MODAL backdrop (using inline) -->
+
+<!-- Results Modal -->
+<div class="modal-overlay" id="resultsModal">
+  <div class="modal">
+    <div class="modal-header">
+      📊 Marker Analysis Report
+      <button class="modal-close" onclick="closeModal('resultsModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="results-grid" id="resultsGrid"></div>
+      <div class="auto-result-info" id="autoResultInfo" style="display:none;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('resultsModal')">Close</button>
+      <button class="btn btn-primary" onclick="exportReport()">Export CSV</button>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ─────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────
+const SCALE = 2; // pixels per cm
+let zoom = 1;
+let showGrid = true;
+let currentTool = 'select';
+let selectedPieceId = null;
+let dragging = false;
+let dragOffsetX = 0, dragOffsetY = 0;
+let patternColors = ['#e05c2a','#3a6b4a','#5b7fb5','#b56b2a','#7b5bb5','#b52a6b','#2a9bb5','#6b9b2a'];
+let colorIdx = 0;
+
+let patterns = []; // {id, name, garmentType, height, maxWidth, minWidth, waistWidth, crotch, qty, rotation, color}
+let placed = [];   // {id, patternId, x, y, rotated, width, height, label}
+
+const canvas = document.getElementById('markerCanvas');
+const ctx = canvas.getContext('2d');
+
+// ─────────────────────────────────────────
+//  FABRIC SETUP
+// ─────────────────────────────────────────
+function getFabric() {
+  return {
+    width: parseFloat(document.getElementById('fabricWidth').value) || 150,
+    length: parseFloat(document.getElementById('fabricLength').value) || 400,
+    seam: parseFloat(document.getElementById('seamAllowance').value) || 1.5,
+    gap: parseFloat(document.getElementById('gapBetween').value) || 1
+  };
+}
+
+function initCanvas() {
+  const f = getFabric();
+  canvas.width = f.length * SCALE * zoom;
+  canvas.height = f.width * SCALE * zoom;
+  draw();
+  updateStatus();
+}
+
+document.getElementById('fabricWidth').addEventListener('change', initCanvas);
+document.getElementById('fabricLength').addEventListener('change', initCanvas);
+
+// ─────────────────────────────────────────
+//  DRAWING
+// ─────────────────────────────────────────
+function draw() {
+  const f = getFabric();
+  const W = f.length * SCALE * zoom;
+  const H = f.width * SCALE * zoom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Fabric background
+  ctx.fillStyle = '#faf8f5';
+  ctx.fillRect(0, 0, W, H);
+
+  // Fabric grain texture (subtle lines)
+  ctx.strokeStyle = '#f0ede8';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x < W; x += 10 * zoom) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+
+  // Grid
+  if (showGrid) {
+    ctx.strokeStyle = '#e0dbd4';
+    ctx.lineWidth = 0.8;
+    const gridStep = 10 * SCALE * zoom;
+    for (let x = 0; x < W; x += gridStep) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y < H; y += gridStep) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+    // Major grid (50cm)
+    ctx.strokeStyle = '#ccc8c0';
+    ctx.lineWidth = 1;
+    const major = 50 * SCALE * zoom;
+    for (let x = 0; x < W; x += major) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      ctx.fillStyle = '#999'; ctx.font = `${9 * zoom}px IBM Plex Mono, monospace`;
+      ctx.fillText(`${Math.round(x / (SCALE * zoom))}`, x + 2, 10 * zoom);
+    }
+    for (let y = 0; y < H; y += major) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      ctx.fillStyle = '#999';
+      if (y > 0) ctx.fillText(`${Math.round(y / (SCALE * zoom))}`, 2, y - 2);
+    }
+  }
+
+  // Fabric border
+  ctx.strokeStyle = '#1a1a1a';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(0, 0, W, H);
+
+  // Selvedge lines
+  ctx.strokeStyle = '#c8b89a';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([6, 3]);
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(W, H); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Draw placed pieces
+  placed.forEach(p => {
+    const pat = patterns.find(x => x.id === p.patternId);
+    if (!pat) return;
+    drawPiece(p, pat);
+  });
+}
+
+function drawPiece(p, pat) {
+  const s = SCALE * zoom;
+  const x = p.x * s, y = p.y * s;
+  const w = p.width * s, h = p.height * s;
+  const isSelected = p.id === selectedPieceId;
+
+  ctx.save();
+
+  // Shadow
+  ctx.shadowColor = 'rgba(0,0,0,0.12)';
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
+
+  // Draw trapezoid shape for trouser/short pieces
+  ctx.beginPath();
+  if (pat.garmentType === 'trouser' || pat.garmentType === 'short') {
+    const maxW = p.width * s;
+    const minW = (pat.minWidth / pat.maxWidth) * maxW;
+    const waistW = (pat.waistWidth / pat.maxWidth) * maxW;
+    const crotchH = Math.min((pat.crotch / pat.height) * h, h * 0.25);
+    const topOffset = (maxW - waistW) / 2;
+    const botOffset = (maxW - minW) / 2;
+
+    if (!p.rotated) {
+      ctx.moveTo(x + topOffset, y);
+      ctx.lineTo(x + maxW - topOffset, y);
+      ctx.quadraticCurveTo(x + maxW + crotchH * 0.5, y + h * 0.3, x + maxW - botOffset, y + h);
+      ctx.lineTo(x + botOffset, y + h);
+      ctx.lineTo(x, y + h * 0.3);
+      ctx.closePath();
+    } else {
+      ctx.moveTo(x + topOffset, y);
+      ctx.lineTo(x + maxW - topOffset, y);
+      ctx.lineTo(x + maxW - botOffset, y + h);
+      ctx.quadraticCurveTo(x + crotchH * 0.5, y + h * 0.7, x + botOffset, y + h);
+      ctx.closePath();
+    }
+  } else if (pat.garmentType === 'waistband') {
+    // Rectangle
+    ctx.rect(x, y, w, h);
+  } else {
+    // Generic trapezoid
+    const topOffset = (w - (pat.waistWidth / pat.maxWidth) * w) / 2;
+    ctx.moveTo(x + topOffset, y);
+    ctx.lineTo(x + w - topOffset, y);
+    ctx.lineTo(x + w, y + h);
+    ctx.lineTo(x, y + h);
+    ctx.closePath();
+  }
+
+  ctx.shadowColor = 'transparent';
+
+  // Fill
+  const alpha = isSelected ? 'cc' : '88';
+  ctx.fillStyle = pat.color + alpha;
+  ctx.fill();
+
+  // Border
+  ctx.strokeStyle = isSelected ? '#e05c2a' : pat.color;
+  ctx.lineWidth = isSelected ? 2.5 : 1.5;
+  ctx.stroke();
+
+  // Grain line
+  const cx2 = x + w / 2, cy2 = y + h / 2;
+  ctx.strokeStyle = pat.color;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 2]);
+  ctx.beginPath(); ctx.moveTo(cx2, y + h * 0.1); ctx.lineTo(cx2, y + h * 0.9); ctx.stroke();
+  ctx.setLineDash([]);
+  // Grain arrows
+  ctx.beginPath(); ctx.moveTo(cx2 - 4, y + h * 0.15); ctx.lineTo(cx2, y + h * 0.1); ctx.lineTo(cx2 + 4, y + h * 0.15); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx2 - 4, y + h * 0.85); ctx.lineTo(cx2, y + h * 0.9); ctx.lineTo(cx2 + 4, y + h * 0.85); ctx.stroke();
+
+  // Label
+  ctx.fillStyle = '#1a1a1a';
+  ctx.font = `bold ${Math.max(9, 10 * zoom)}px IBM Plex Sans, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const label = p.label.length > 14 ? p.label.slice(0, 13) + '…' : p.label;
+  ctx.fillText(label, cx2, cy2 - 6);
+  ctx.font = `${Math.max(8, 9 * zoom)}px IBM Plex Mono, monospace`;
+  ctx.fillStyle = '#555';
+  ctx.fillText(`${p.width}×${p.height}cm`, cx2, cy2 + 8);
+
+  // Selection highlight
+  if (isSelected) {
+    ctx.strokeStyle = '#e05c2a';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.strokeRect(x - 3, y - 3, w + 6, h + 6);
+    ctx.setLineDash([]);
+  }
+
+  ctx.restore();
+}
+
+// ─────────────────────────────────────────
+//  PATTERNS
+// ─────────────────────────────────────────
+let patternIdCounter = 1;
+let placedIdCounter = 1;
+
+function addPattern() {
+  const name = document.getElementById('patternName').value.trim() || `Pattern ${patternIdCounter}`;
+  const garmentType = document.getElementById('garmentType').value;
+  const height = parseFloat(document.getElementById('pHeight').value) || 60;
+  const maxWidth = parseFloat(document.getElementById('pMaxWidth').value) || 35;
+  const minWidth = parseFloat(document.getElementById('pMinWidth').value) || 28;
+  const waistWidth = parseFloat(document.getElementById('pWaistWidth').value) || 30;
+  const crotch = parseFloat(document.getElementById('pCrotch').value) || 5;
+  const qty = parseInt(document.getElementById('pQty').value) || 2;
+  const rotation = document.getElementById('pRotation').value;
+
+  const pat = {
+    id: patternIdCounter++,
+    name, garmentType, height, maxWidth, minWidth, waistWidth, crotch, qty, rotation,
+    color: patternColors[colorIdx % patternColors.length]
+  };
+  colorIdx++;
+  patterns.push(pat);
+
+  document.getElementById('patternName').value = '';
+  renderPatternList();
+  updateStatus();
+}
+
+function renderPatternList() {
+  const list = document.getElementById('patternList');
+  if (!patterns.length) {
+    list.innerHTML = '<div style="font-size:0.75rem;color:var(--muted);text-align:center;padding:12px;">No patterns added yet</div>';
+    return;
+  }
+  list.innerHTML = patterns.map(p => {
+    const placedCount = placed.filter(x => x.patternId === p.id).length;
+    const isPlaced = placedCount > 0;
+    return `<div class="pattern-item ${isPlaced ? 'placed' : ''}" draggable="true"
+      ondragstart="startDrag(event, ${p.id})"
+      ondblclick="quickPlace(${p.id})"
+      title="Double-click to auto-place next piece">
+      <div class="pattern-color-swatch" style="background:${p.color}"></div>
+      <div class="pattern-info">
+        <div class="pattern-name">${p.name}</div>
+        <div class="pattern-dims">${p.maxWidth}×${p.height}cm · ${p.garmentType}</div>
+        <div class="pattern-dims" style="color:${isPlaced?'var(--seam)':'var(--muted)'}">
+          Placed: ${placedCount}/${p.qty}
+        </div>
+      </div>
+      <div class="pattern-qty">${p.qty}</div>
+      <div class="pattern-actions">
+        <button onclick="removePattern(${p.id})" title="Remove">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function removePattern(id) {
+  patterns = patterns.filter(p => p.id !== id);
+  placed = placed.filter(p => p.patternId !== id);
+  renderPatternList();
+  draw();
+  updateStatus();
+}
+
+// ─────────────────────────────────────────
+//  DRAG & DROP onto canvas
+// ─────────────────────────────────────────
+let draggingPatternId = null;
+
+function startDrag(e, patternId) {
+  draggingPatternId = patternId;
+  e.dataTransfer.setData('text/plain', patternId);
+}
+
+const canvasContainer = document.getElementById('canvasContainer');
+
+canvasContainer.addEventListener('dragover', e => { e.preventDefault(); });
+
+canvasContainer.addEventListener('drop', e => {
+  e.preventDefault();
+  if (!draggingPatternId) return;
+  const rect = canvas.getBoundingClientRect();
+  const pat = patterns.find(p => p.id === draggingPatternId);
+  if (!pat) return;
+  const x = (e.clientX - rect.left) / (SCALE * zoom);
+  const y = (e.clientY - rect.top) / (SCALE * zoom);
+  placePiece(pat, x - pat.maxWidth / 2, y - pat.height / 2, false);
+  draggingPatternId = null;
+});
+
+function placePiece(pat, x, y, rotated) {
+  const f = getFabric();
+  const gap = f.gap;
+  const w = rotated ? pat.height : pat.maxWidth;
+  const h = rotated ? pat.maxWidth : pat.height;
+  const px = Math.max(0, Math.min(x, f.length - w));
+  const py = Math.max(0, Math.min(y, f.width - h));
+
+  const countAlready = placed.filter(p => p.patternId === pat.id).length;
+  if (countAlready >= pat.qty) {
+    alert(`All ${pat.qty} pieces of "${pat.name}" are already placed.`);
+    return;
+  }
+
+  placed.push({
+    id: placedIdCounter++,
+    patternId: pat.id,
+    x: Math.round(px * 2) / 2,
+    y: Math.round(py * 2) / 2,
+    width: w, height: h,
+    rotated,
+    label: `${pat.name} (${countAlready + 1}/${pat.qty})`
+  });
+
+  renderPatternList();
+  draw();
+  updateStatus();
+}
+
+function quickPlace(patternId) {
+  const pat = patterns.find(p => p.id === patternId);
+  if (!pat) return;
+  autoNestSingle(pat);
+}
+
+// ─────────────────────────────────────────
+//  CANVAS MOUSE INTERACTION
+// ─────────────────────────────────────────
+canvas.addEventListener('mousedown', e => {
+  const pos = getCanvasPos(e);
+  const hit = findHit(pos.x, pos.y);
+  if (hit) {
+    selectedPieceId = hit.id;
+    if (currentTool === 'move' || currentTool === 'select') {
+      dragging = true;
+      dragOffsetX = pos.x - hit.x;
+      dragOffsetY = pos.y - hit.y;
+    } else if (currentTool === 'rotate') {
+      hit.rotated = !hit.rotated;
+      const tmp = hit.width; hit.width = hit.height; hit.height = tmp;
+      const f = getFabric();
+      hit.x = Math.min(hit.x, f.length - hit.width);
+      hit.y = Math.min(hit.y, f.width - hit.height);
+    }
+  } else {
+    selectedPieceId = null;
+  }
+  draw();
+  updateStatus();
+});
+
+canvas.addEventListener('mousemove', e => {
+  const pos = getCanvasPos(e);
+  document.getElementById('sb-cursor').textContent = `${Math.round(pos.x)}, ${Math.round(pos.y)} cm`;
+
+  if (dragging && selectedPieceId) {
+    const p = placed.find(x => x.id === selectedPieceId);
+    if (p) {
+      const f = getFabric();
+      p.x = Math.max(0, Math.min(pos.x - dragOffsetX, f.length - p.width));
+      p.y = Math.max(0, Math.min(pos.y - dragOffsetY, f.width - p.height));
+      draw();
+      updateStatus();
+    }
+  }
+
+  // Tooltip
+  const hit = findHit(pos.x, pos.y);
+  const tip = document.getElementById('tooltip');
+  if (hit) {
+    const pat = patterns.find(x => x.id === hit.patternId);
+    tip.style.display = 'block';
+    tip.style.left = (e.clientX + 12) + 'px';
+    tip.style.top = (e.clientY - 10) + 'px';
+    tip.textContent = `${hit.label} | ${hit.width}×${hit.height}cm | Area: ${(hit.width * hit.height).toFixed(0)}cm²`;
+  } else {
+    tip.style.display = 'none';
+  }
+});
+
+canvas.addEventListener('mouseup', () => { dragging = false; });
+canvas.addEventListener('mouseleave', () => {
+  dragging = false;
+  document.getElementById('tooltip').style.display = 'none';
+});
+
+canvas.addEventListener('dblclick', e => {
+  const pos = getCanvasPos(e);
+  const hit = findHit(pos.x, pos.y);
+  if (hit && (confirm(`Remove "${hit.label}" from marker?`))) {
+    placed = placed.filter(p => p.id !== hit.id);
+    selectedPieceId = null;
+    renderPatternList();
+    draw();
+    updateStatus();
+  }
+});
+
+function getCanvasPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left) / (SCALE * zoom),
+    y: (e.clientY - rect.top) / (SCALE * zoom)
+  };
+}
+
+function findHit(x, y) {
+  // Iterate in reverse so top-drawn pieces are found first
+  for (let i = placed.length - 1; i >= 0; i--) {
+    const p = placed[i];
+    if (x >= p.x && x <= p.x + p.width && y >= p.y && y <= p.y + p.height) return p;
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────
+//  AUTO NESTING (Bottom-Left Shelf Algorithm)
+// ─────────────────────────────────────────
+function autoNest() {
+  placed = [];
+  const f = getFabric();
+  const gap = f.gap;
+
+  // Sort pieces: largest area first
+  let queue = [];
+  patterns.forEach(pat => {
+    for (let i = 0; i < pat.qty; i++) {
+      queue.push({ pat, idx: i });
+    }
+  });
+  queue.sort((a, b) => (b.pat.maxWidth * b.pat.height) - (a.pat.maxWidth * a.pat.height));
+
+  // Shelf-based placement
+  let shelves = [{ x: 0, y: 0, h: 0 }]; // each shelf: current x, y start, height
+
+  queue.forEach(({ pat, idx }) => {
+    let placed_flag = false;
+
+    // Try both orientations
+    const orientations = [
+      { w: pat.maxWidth, h: pat.height, rotated: false },
+    ];
+    if (pat.rotation !== '0') {
+      orientations.push({ w: pat.height, h: pat.maxWidth, rotated: true });
+    }
+
+    for (const orient of orientations) {
+      if (placed_flag) break;
+      const pw = orient.w, ph = orient.h;
+
+      for (let si = 0; si < shelves.length; si++) {
+        const shelf = shelves[si];
+        if (shelf.x + pw + gap <= f.length && shelf.y + ph + gap <= f.width) {
+          // Place here
+          placed.push({
+            id: placedIdCounter++,
+            patternId: pat.id,
+            x: shelf.x + (si > 0 ? gap : 0),
+            y: shelf.y + gap,
+            width: pw, height: ph,
+            rotated: orient.rotated,
+            label: `${pat.name} (${idx + 1}/${pat.qty})`
+          });
+          const usedX = shelf.x + pw + gap;
+          shelf.x = usedX;
+          if (ph + gap > shelf.h) shelf.h = ph + gap;
+
+          // New shelf if needed for next
+          if (!shelves.find(s => s.y === shelf.y + shelf.h) && shelf.y + shelf.h < f.width) {
+            shelves.push({ x: 0, y: shelf.y + shelf.h, h: 0 });
+          }
+          placed_flag = true;
+          break;
+        } else if (shelf.x + pw + gap > f.length) {
+          // Move to next shelf
+          continue;
+        }
+      }
+    }
+  });
+
+  renderPatternList();
+  draw();
+  updateStatus();
+  openResults();
+}
+
+function autoNestSingle(pat) {
+  const f = getFabric();
+  const gap = f.gap;
+  const pw = pat.maxWidth, ph = pat.height;
+
+  // Find first available space
+  let bestX = 0, bestY = 0;
+  const occupied = placed.map(p => ({ x: p.x, y: p.y, w: p.width, h: p.height }));
+
+  // Simple bottom-left: scan row by row
+  let placed_flag = false;
+  outer:
+  for (let y = 0; y + ph <= f.width; y += 0.5) {
+    for (let x = 0; x + pw <= f.length; x += 0.5) {
+      const ok = !occupied.some(o =>
+        x < o.x + o.w + gap && x + pw + gap > o.x &&
+        y < o.y + o.h + gap && y + ph + gap > o.y
+      );
+      if (ok) { bestX = x; bestY = y; placed_flag = true; break outer; }
+    }
+  }
+
+  if (!placed_flag) { alert('Not enough space on fabric for this piece!'); return; }
+
+  const countAlready = placed.filter(p => p.patternId === pat.id).length;
+  if (countAlready >= pat.qty) { alert(`All pieces of "${pat.name}" already placed.`); return; }
+
+  placed.push({
+    id: placedIdCounter++,
+    patternId: pat.id,
+    x: bestX, y: bestY,
+    width: pw, height: ph,
+    rotated: false,
+    label: `${pat.name} (${countAlready + 1}/${pat.qty})`
+  });
+
+  renderPatternList();
+  draw();
+  updateStatus();
+}
+
+// ─────────────────────────────────────────
+//  STATS
+// ─────────────────────────────────────────
+function updateStatus() {
+  const f = getFabric();
+  const fabricArea = f.width * f.length;
+  const placedArea = placed.reduce((sum, p) => sum + p.width * p.height, 0);
+  const efficiency = fabricArea > 0 ? (placedArea / fabricArea * 100) : 0;
+  const waste = fabricArea - placedArea;
+  const totalNeeded = patterns.reduce((s, p) => s + p.qty, 0);
+
+  document.getElementById('efficiencyDisplay').textContent = efficiency.toFixed(1) + '%';
+  document.getElementById('hdr-efficiency').textContent = efficiency.toFixed(1) + '%';
+  document.getElementById('hdr-waste').textContent = (100 - efficiency).toFixed(1) + '%';
+  document.getElementById('hdr-placed').textContent = `${placed.length}/${totalNeeded}`;
+  document.getElementById('sb-fabric').textContent = `${f.width} × ${f.length} cm`;
+  document.getElementById('sb-placed-area').textContent = `${placedArea.toFixed(0)} cm²`;
+  document.getElementById('sb-waste').textContent = `${waste.toFixed(0)} cm²`;
+
+  const sel = placed.find(p => p.id === selectedPieceId);
+  document.getElementById('sb-selected').textContent = sel ? sel.label : 'None';
+}
+
+// ─────────────────────────────────────────
+//  TOOLBAR
+// ─────────────────────────────────────────
+function setTool(t) {
+  currentTool = t;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tool-' + t)?.classList.add('active');
+  canvas.style.cursor = t === 'move' ? 'move' : t === 'rotate' ? 'crosshair' : 'default';
+}
+
+function zoomIn() {
+  zoom = Math.min(zoom + 0.25, 3);
+  initCanvas();
+}
+function zoomOut() {
+  zoom = Math.max(zoom - 0.25, 0.3);
+  initCanvas();
+}
+function fitToScreen() {
+  const container = document.getElementById('canvasContainer');
+  const f = getFabric();
+  const scaleX = (container.clientWidth - 40) / (f.length * SCALE);
+  const scaleY = (container.clientHeight - 40) / (f.width * SCALE);
+  zoom = Math.min(scaleX, scaleY, 1);
+  initCanvas();
+}
+function toggleGrid() {
+  showGrid = !showGrid;
+  draw();
+}
+function resetCanvas() {
+  placed = [];
+  renderPatternList();
+  draw();
+  updateStatus();
+}
+
+// ─────────────────────────────────────────
+//  MODALS
+// ─────────────────────────────────────────
+function openResults() {
+  const f = getFabric();
+  const fabricArea = f.width * f.length;
+  const placedArea = placed.reduce((sum, p) => sum + p.width * p.height, 0);
+  const efficiency = fabricArea > 0 ? (placedArea / fabricArea * 100) : 0;
+  const waste = fabricArea - placedArea;
+  const totalNeeded = patterns.reduce((s, p) => s + p.qty, 0);
+
+  document.getElementById('resultsGrid').innerHTML = `
+    <div class="result-card good">
+      <div class="r-val">${efficiency.toFixed(1)}%</div>
+      <div class="r-lbl">Fabric Efficiency</div>
+    </div>
+    <div class="result-card">
+      <div class="r-val">${(100 - efficiency).toFixed(1)}%</div>
+      <div class="r-lbl">Waste</div>
+    </div>
+    <div class="result-card">
+      <div class="r-val">${placedArea.toFixed(0)} cm²</div>
+      <div class="r-lbl">Used Area</div>
+    </div>
+    <div class="result-card">
+      <div class="r-val">${waste.toFixed(0)} cm²</div>
+      <div class="r-lbl">Wasted Area</div>
+    </div>
+    <div class="result-card">
+      <div class="r-val">${placed.length}/${totalNeeded}</div>
+      <div class="r-lbl">Pieces Placed</div>
+    </div>
+    <div class="result-card">
+      <div class="r-val">${fabricArea.toFixed(0)} cm²</div>
+      <div class="r-lbl">Total Fabric</div>
+    </div>
+  `;
+
+  const info = document.getElementById('autoResultInfo');
+  if (efficiency > 0) {
+    info.style.display = 'block';
+    info.innerHTML = `✔ ${placed.length} of ${totalNeeded} pieces placed &nbsp;|&nbsp;
+      Fabric: ${f.length}×${f.width}cm &nbsp;|&nbsp;
+      ${efficiency >= 80 ? '🟢 Excellent marker efficiency' : efficiency >= 65 ? '🟡 Good — try rotating pieces to improve' : '🔴 Low efficiency — use Auto-Nest or reposition pieces'}`;
+  } else {
+    info.style.display = 'none';
+  }
+
+  document.getElementById('resultsModal').classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// ─────────────────────────────────────────
+//  EXPORT
+// ─────────────────────────────────────────
+function exportReport() {
+  const f = getFabric();
+  const fabricArea = f.width * f.length;
+  const placedArea = placed.reduce((sum, p) => sum + p.width * p.height, 0);
+  const efficiency = (placedArea / fabricArea * 100).toFixed(2);
+
+  let csv = 'Piece Label,Pattern,Width (cm),Height (cm),X Position,Y Position,Area (cm²),Rotated\n';
+  placed.forEach(p => {
+    const pat = patterns.find(x => x.id === p.patternId);
+    csv += `"${p.label}","${pat ? pat.name : ''}",${p.width},${p.height},${p.x.toFixed(1)},${p.y.toFixed(1)},${(p.width*p.height).toFixed(0)},${p.rotated ? 'Yes' : 'No'}\n`;
+  });
+  csv += `\nFabric Width,${f.width} cm\nFabric Length,${f.length} cm\nFabric Area,${fabricArea} cm²\nPlaced Area,${placedArea.toFixed(0)} cm²\nEfficiency,${efficiency}%\nWaste,${(100 - efficiency).toFixed(2)}%\n`;
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'marker_report.csv';
+  a.click();
+  closeModal('resultsModal');
+}
+
+// ─────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────
+initCanvas();
+fitToScreen();
+
+// Add default example pieces for trousers
+setTimeout(() => {
+  // Pre-add some example patterns
+  const examples = [
+    { name: 'Front Leg', type: 'trouser', h: 105, maxW: 38, minW: 30, waistW: 32, crotch: 6, qty: 2, rot: '180' },
+    { name: 'Back Leg', type: 'trouser', h: 108, maxW: 42, minW: 33, waistW: 35, crotch: 8, qty: 2, rot: '180' },
+    { name: 'Waistband', type: 'waistband', h: 8, maxW: 80, minW: 80, waistW: 80, crotch: 0, qty: 1, rot: '180' },
+    { name: 'Pocket Bag', type: 'pocket', h: 22, maxW: 18, minW: 18, waistW: 18, crotch: 0, qty: 2, rot: 'any' },
+  ];
+  examples.forEach((e, i) => {
+    patterns.push({
+      id: patternIdCounter++,
+      name: e.name,
+      garmentType: e.type,
+      height: e.h,
+      maxWidth: e.maxW,
+      minWidth: e.minW,
+      waistWidth: e.waistW,
+      crotch: e.crotch,
+      qty: e.qty,
+      rotation: e.rot,
+      color: patternColors[colorIdx++ % patternColors.length]
+    });
+  });
+  renderPatternList();
+  updateStatus();
+}, 100);
+</script>
+</body>
+</html>
